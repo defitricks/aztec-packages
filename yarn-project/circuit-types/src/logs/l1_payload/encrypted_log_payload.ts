@@ -29,13 +29,9 @@ const OUTGOING_BODY_SIZE = 144;
 export class EncryptedLogPayload {
   constructor(
     /**
-     * Note discovery tag used by the recipient of the log.
+     * Note discovery tag.
      */
-    public readonly incomingTag: Fr,
-    /**
-     * Note discovery tag used by the sender of the log.
-     */
-    public readonly outgoingTag: Fr,
+    public readonly tag: Fr,
     /**
      * Address of a contract that emitted the log.
      */
@@ -75,8 +71,7 @@ export class EncryptedLogPayload {
     }
 
     return serializeToBuffer(
-      this.incomingTag,
-      this.outgoingTag,
+      this.tag,
       ephPk.toCompressedBuffer(),
       incomingHeaderCiphertext,
       outgoingHeaderCiphertext,
@@ -104,8 +99,7 @@ export class EncryptedLogPayload {
     const reader = BufferReader.asReader(ciphertext);
 
     try {
-      const incomingTag = reader.readObject(Fr);
-      const outgoingTag = reader.readObject(Fr);
+      const tag = reader.readObject(Fr);
 
       const ephPk = Point.fromCompressedBuffer(reader.readBytes(Point.COMPRESSED_SIZE_IN_BYTES));
 
@@ -119,8 +113,7 @@ export class EncryptedLogPayload {
       const incomingBodyPlaintext = decrypt(reader.readToEnd(), addressSecret, ephPk);
 
       return new EncryptedLogPayload(
-        incomingTag,
-        outgoingTag,
+        tag,
         AztecAddress.fromBuffer(incomingHeader),
         incomingBodyPlaintext,
       );
@@ -160,8 +153,7 @@ export class EncryptedLogPayload {
     const reader = BufferReader.asReader(ciphertext);
 
     try {
-      const incomingTag = reader.readObject(Fr);
-      const outgoingTag = reader.readObject(Fr);
+      const tag = reader.readObject(Fr);
 
       const ephPk = Point.fromCompressedBuffer(reader.readBytes(Point.COMPRESSED_SIZE_IN_BYTES));
 
@@ -188,7 +180,7 @@ export class EncryptedLogPayload {
       // Now we decrypt the incoming body using the ephSk and recipientAddressPoint
       const incomingBody = decrypt(reader.readToEnd(), ephSk, recipientAddressPoint);
 
-      return new EncryptedLogPayload(incomingTag, outgoingTag, contractAddress, incomingBody);
+      return new EncryptedLogPayload(tag, contractAddress, incomingBody);
     } catch (e: any) {
       // Following error messages are expected to occur when decryption fails
       if (
@@ -207,8 +199,7 @@ export class EncryptedLogPayload {
 
   public toBuffer() {
     return serializeToBuffer(
-      this.incomingTag,
-      this.outgoingTag,
+      this.tag,
       this.contractAddress.toBuffer(),
       this.incomingBodyPlaintext,
     );

@@ -39,7 +39,7 @@ fn compute_private_log_payload<let P: u32, let M: u32>(
 
     let mut encrypted_bytes: [u8; M] = [0; M];
     // @todo We ignore the tags for now
-    offset += 64;
+    offset += 32;
 
     let eph_pk_bytes = point_to_bytes(eph_pk);
     for i in 0..32 {
@@ -206,7 +206,7 @@ mod test {
             0x25afb798ea6d0b8c1618e50fdeafa463059415013d3b7c75d46abf5e242be70c,
         );
 
-        let log: [u8; 448] = compute_private_log_payload(
+        let log = compute_private_log_payload(
             contract_address,
             ovsk_app,
             ovpk_m,
@@ -219,8 +219,7 @@ mod test {
         // --> Run the test with AZTEC_GENERATE_TEST_DATA=1 flag to update test data.
         let encrypted_log_from_typescript = [
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 141, 70, 12, 14, 67, 77, 132, 110, 193, 234, 40, 110, 64, 144, 235,
+            0, 0, 0, 141, 70, 12, 14, 67, 77, 132, 110, 193, 234, 40, 110, 64, 144, 235,
             86, 55, 111, 242, 123, 221, 193, 170, 202, 225, 216, 86, 84, 159, 112, 31, 167, 5, 119,
             121, 10, 234, 188, 194, 216, 30, 200, 208, 201, 158, 127, 93, 43, 242, 241, 69, 32, 37,
             220, 119, 122, 23, 132, 4, 248, 81, 217, 61, 232, 24, 146, 63, 133, 24, 120, 113, 217,
