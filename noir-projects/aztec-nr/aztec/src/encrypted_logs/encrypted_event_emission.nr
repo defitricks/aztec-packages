@@ -11,6 +11,7 @@ fn compute_payload_and_hash<Event, let N: u32>(
     randomness: Field,
     ovsk_app: Field,
     ovpk: OvpkM,
+    sender: AztecAddress,
     recipient: AztecAddress,
     sender: AztecAddress,
 ) -> ([u8; 384 + N * 32], Field)
@@ -25,6 +26,7 @@ where
         contract_address,
         ovsk_app,
         ovpk,
+        sender,
         recipient,
         sender,
         plaintext,
@@ -39,6 +41,7 @@ unconstrained fn compute_payload_and_hash_unconstrained<Event, let N: u32>(
     event: Event,
     randomness: Field,
     ovpk: OvpkM,
+    sender: AztecAddress,
     recipient: AztecAddress,
     sender: AztecAddress,
 ) -> ([u8; 384 + N * 32], Field)
@@ -60,6 +63,7 @@ where
 pub fn encode_and_encrypt_event<Event, let N: u32>(
     context: &mut PrivateContext,
     ovpk: OvpkM,
+    sender: AztecAddress,
     recipient: AztecAddress,
     sender: AztecAddress,
 ) -> fn[(&mut PrivateContext, OvpkM, AztecAddress, AztecAddress)](Event) -> ()
@@ -82,6 +86,7 @@ where
 pub fn encode_and_encrypt_event_unconstrained<Event, let N: u32>(
     context: &mut PrivateContext,
     ovpk: OvpkM,
+    sender: AztecAddress,
     recipient: AztecAddress,
     sender: AztecAddress,
 ) -> fn[(&mut PrivateContext, OvpkM, AztecAddress, AztecAddress)](Event) -> ()
@@ -108,6 +113,7 @@ pub fn encode_and_encrypt_event_with_randomness<Event, let N: u32>(
     context: &mut PrivateContext,
     randomness: Field,
     ovpk: OvpkM,
+    sender: AztecAddress,
     recipient: AztecAddress,
     sender: AztecAddress,
 ) -> fn[(&mut PrivateContext, OvpkM, Field, AztecAddress, AztecAddress)](Event) -> ()
@@ -126,12 +132,10 @@ pub fn encode_and_encrypt_event_with_randomness_unconstrained<Event, let N: u32>
     context: &mut PrivateContext,
     randomness: Field,
     ovpk: OvpkM,
+    sender: AztecAddress,
     recipient: AztecAddress,
     sender: AztecAddress,
-) -> fn[(&mut PrivateContext, Field, OvpkM, AztecAddress, AztecAddress)](Event) -> ()
-where
-    Event: EventInterface<N>,
-{
+) where
     |e: Event| {
         //   Having the log hash be unconstrained here is fine because the way this works is we send the log hash
         // to the kernel, and it gets included as part of its public inputs. Then we send the tx to the sequencer,

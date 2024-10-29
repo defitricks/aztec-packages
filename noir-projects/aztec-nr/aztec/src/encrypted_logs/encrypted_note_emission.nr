@@ -68,6 +68,7 @@ pub fn encode_and_encrypt_note<Note, let N: u32>(
     context: &mut PrivateContext,
     ovpk: OvpkM,
     recipient: AztecAddress,
+    // TODO: We need this because to compute a tagging secret, we require a sender. Should we have the tagging secret oracle take a ovpk_m as input instead of the address?
     sender: AztecAddress,
 ) -> fn[(&mut PrivateContext, OvpkM, AztecAddress, AztecAddress)](NoteEmission<Note>) -> ()
 where
@@ -86,6 +87,7 @@ pub fn encode_and_encrypt_note_unconstrained<Note, let N: u32>(
     context: &mut PrivateContext,
     ovpk: OvpkM,
     recipient: AztecAddress,
+    // TODO: We need this because to compute a tagging secret, we require a sender. Should we have the tagging secret oracle take a ovpk_m as input instead of the address?
     sender: AztecAddress,
 ) -> fn[(&mut PrivateContext, OvpkM, AztecAddress, AztecAddress)](NoteEmission<Note>) -> ()
 where

@@ -1,5 +1,5 @@
 use dep::protocol_types::{
-    address::AztecAddress, constants::GENERATOR_INDEX__SYMMETRIC_KEY,
+    address::AztecAddress, constants::GENERATOR_INDEX__SYMMETRIC_KEY, public_keys::AddressPoint,
     hash::poseidon2_hash_with_separator, point::Point, public_keys::OvpkM, scalar::Scalar,
 };
 use std::{
@@ -9,10 +9,10 @@ use std::{
 
 use crate::{
     encrypted_logs::header::EncryptedLogHeader,
-    keys::point_to_symmetric_key::point_to_symmetric_key, oracle::random::random,
+    keys::point_to_symmetric_key::point_to_symmetric_key, oracle::{random::random, notes::get_app_tagging_secret},
     utils::point::point_to_bytes,
 };
-use protocol_types::public_keys::AddressPoint;
+use protocol_types::hash::poseidon2_hash;
 
 fn compute_private_log_payload<let P: u32, let M: u32>(
     contract_address: AztecAddress,
@@ -39,7 +39,17 @@ fn compute_private_log_payload<let P: u32, let M: u32>(
     let mut offset = if include_public_values_prefix { 1 } else { 0 };
 
     let mut encrypted_bytes: [u8; M] = [0; M];
-    // @todo We ignore the tags for now
+
+    let tagging_secret = unsafe {
+        get_app_tagging_secret(sender, recipient)
+    };
+
+    let tag = poseidon2_hash([tagging_secret.secret, recipient.to_field(), tagging_secret.index as Field]);
+    let tag_bytes = tag.to_be_bytes();
+
+    for i in 0..32 {
+        encrypted_bytes[offset + i] = tag_bytes[i];
+    }
     offset += 32;
 
     let eph_pk_bytes = point_to_bytes(eph_pk);
@@ -211,10 +221,11 @@ mod test {
             0x25afb798ea6d0b8c1618e50fdeafa463059415013d3b7c75d46abf5e242be70c,
         );
 
-        let log: [u8; 448] = compute_private_log_payload(
+        let log = compute_private_log_payload(
             contract_address,
             ovsk_app,
             ovpk_m,
+            sender,
             recipient,
             sender,
             plaintext,
