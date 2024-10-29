@@ -39,7 +39,7 @@ fn compute_private_log_payload<let P: u32, let M: u32>(
 
     let mut encrypted_bytes: [u8; M] = [0; M];
     // @todo We ignore the tags for now
-    offset += 64;
+    offset += 32;
 
     let eph_pk_bytes = point_to_bytes(eph_pk);
     for i in 0..32 {
