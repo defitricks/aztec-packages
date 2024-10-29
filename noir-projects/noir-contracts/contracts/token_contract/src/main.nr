@@ -310,6 +310,7 @@ contract Token {
             &mut context,
             from_ovpk_m,
             to,
+            context.msg_sender(),
         ));
     }
     // docs:end:redeem_shield
@@ -326,7 +327,7 @@ contract Token {
         // TODO: constrain encryption below - we are using unconstrained here only becuase of the following Noir issue
         // https://github.com/noir-lang/noir/issues/5771
         storage.balances.at(from).sub(from, U128::from_integer(amount)).emit(
-            encode_and_encrypt_note_unconstrained(&mut context, from_ovpk_m, from),
+            encode_and_encrypt_note_unconstrained(&mut context, from_ovpk_m, from, from),
         );
         Token::at(context.this_address())._increase_public_balance(to, amount).enqueue(&mut context);
     }
@@ -452,6 +453,7 @@ contract Token {
             &mut context,
             from_ovpk_m,
             from,
+            from,
         ));
         // docs:end:encrypted
         // docs:end:increase_private_balance
@@ -461,6 +463,7 @@ contract Token {
             &mut context,
             from_ovpk_m,
             to,
+            from,
         ));
     }
     // docs:end:transfer_from
@@ -476,7 +479,7 @@ contract Token {
         // TODO: constrain encryption below - we are using unconstrained here only becuase of the following Noir issue
         // https://github.com/noir-lang/noir/issues/5771
         storage.balances.at(from).sub(from, U128::from_integer(amount)).emit(
-            encode_and_encrypt_note_unconstrained(&mut context, from_ovpk_m, from),
+            encode_and_encrypt_note_unconstrained(&mut context, from_ovpk_m, from, from),
         );
         Token::at(context.this_address())._reduce_total_supply(amount).enqueue(&mut context);
     }
@@ -527,6 +530,7 @@ contract Token {
         storage.balances.at(user).add(user, change).emit(encode_and_encrypt_note_unconstrained(
             &mut context,
             user_ovpk,
+            user,
             user,
         ));
 
