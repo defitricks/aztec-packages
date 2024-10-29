@@ -24,11 +24,25 @@ class AbiDecoder {
     switch (abiType.kind) {
       case 'field':
         return this.getNextField().toBigInt();
-      case 'integer':
+      case 'integer': {
+        const nextField = this.getNextField();
+
         if (abiType.sign === 'signed') {
-          throw new Error('Unsupported type: signed integer');
+          const newHex = nextField.toString().slice(-((abiType.width / 8) * 2));
+          const signByte = parseInt(newHex.slice(0, 2), 16);
+
+          let ret = BigInt('0x' + newHex);
+          // Manual 2's complement
+          if (0x80 & signByte) {
+            ret = BigInt('0b' + [...ret.toString(2)].map(i => (i === '0' ? 1 : 0)).join('')) + BigInt(1);
+
+            ret = -ret;
+          }
+
+          return ret;
         }
-        return this.getNextField().toBigInt();
+        return nextField.toBigInt();
+      }
       case 'boolean':
         return !this.getNextField().isZero();
       case 'array': {
