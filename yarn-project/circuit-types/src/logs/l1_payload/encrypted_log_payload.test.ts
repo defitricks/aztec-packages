@@ -32,7 +32,7 @@ describe('EncryptedLogPayload', () => {
     beforeAll(() => {
       const incomingBodyPlaintext = randomBytes(128);
       const contract = AztecAddress.random();
-      original = new EncryptedLogPayload(PLACEHOLDER_TAG, PLACEHOLDER_TAG, contract, incomingBodyPlaintext);
+      original = new EncryptedLogPayload(PLACEHOLDER_TAG, contract, incomingBodyPlaintext);
 
       const secretKey = Fr.random();
       const partialAddress = Fr.random();
@@ -111,7 +111,7 @@ describe('EncryptedLogPayload', () => {
       '00000001301640ceea758391b2e161c92c0513f129020f4125256afdae2646ce31099f5c10f48cd9eff7ae5b209c557c70de2e657ee79166868676b787e9417e19260e040fe46be583b71f4ab5b70c2657ff1d05cccf1d292a9369628d1a194f944e659900001027',
       'hex',
     );
-    const log = new EncryptedLogPayload(new Fr(0), new Fr(0), contract, plaintext);
+    const log = new EncryptedLogPayload(new Fr(0), contract, plaintext);
 
     const ovskM = new GrumpkinScalar(0x1d7f6b3c491e99f32aad05c433301f3a2b4ed68de661ff8255d275ff94de6fc4n);
     const ovKeys = getKeyValidationRequest(ovskM, contract);
