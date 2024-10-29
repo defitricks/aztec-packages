@@ -226,7 +226,7 @@ contract Token {
         let caller = context.msg_sender();
         let caller_ovpk_m = get_public_keys(caller).ovpk_m;
         storage.balances.at(caller).add(caller, U128::from_integer(amount)).emit(
-            encode_and_encrypt_note(&mut context, caller_ovpk_m, caller),
+            encode_and_encrypt_note(&mut context, caller_ovpk_m, caller, caller),
         );
         Token::at(context.this_address())
             .assert_minter_and_mint(context.msg_sender(), amount)
@@ -357,18 +357,20 @@ contract Token {
             &mut context,
             from_ovpk_m,
             from,
+            from,
         ));
         storage.balances.at(to).add(to, amount).emit(encode_and_encrypt_note_unconstrained(
             &mut context,
             from_ovpk_m,
             to,
+            from,
         ));
         // We don't constrain encryption of the note log in `transfer` (unlike in `transfer_from`) because the transfer
         // function is only designed to be used in situations where the event is not strictly necessary (e.g. payment to
         // another person where the payment is considered to be successful when the other party successfully decrypts a
         // note).
         Transfer { from, to, amount: amount.to_field() }.emit(
-            encode_and_encrypt_event_unconstrained(&mut context, from_ovpk_m, to),
+            encode_and_encrypt_event_unconstrained(&mut context, from_ovpk_m, to, from),
         );
     }
     // docs:end:transfer
@@ -569,8 +571,9 @@ contract Token {
 
         // 6. We compute setup logs
         let fee_payer_setup_log =
-            fee_payer_setup_payload.encrypt_log(&mut context, user_ovpk, fee_payer);
-        let user_setup_log = user_setup_payload.encrypt_log(&mut context, user_ovpk, user);
+            fee_payer_setup_payload.encrypt_log(&mut context, user_ovpk, fee_payer, fee_payer);
+        let user_setup_log =
+            user_setup_payload.encrypt_log(&mut context, user_ovpk, user, fee_payer);
 
         // 7. We store the hiding points an logs in transients storage
         Token::at(context.this_address())
