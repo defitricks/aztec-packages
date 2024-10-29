@@ -1,11 +1,4 @@
-import {
-  type AccountWalletWithSecretKey,
-  type AztecNode,
-  EventType,
-  Fr,
-  L1EventPayload,
-  type PXE,
-} from '@aztec/aztec.js';
+import { type AccountWalletWithSecretKey, type AztecNode, EventType, Fr, L1EventPayload } from '@aztec/aztec.js';
 import { EventSelector } from '@aztec/foundation/abi';
 import { makeTuple } from '@aztec/foundation/array';
 import { type Tuple } from '@aztec/foundation/serialize';
@@ -23,18 +16,15 @@ describe('Logs', () => {
 
   let wallets: AccountWalletWithSecretKey[];
   let node: AztecNode;
-  let pxe: PXE;
 
   let teardown: () => Promise<void>;
 
   beforeAll(async () => {
-    ({ teardown, wallets, aztecNode: node, pxe } = await setup(2));
+    ({ teardown, wallets, aztecNode: node } = await setup(2));
 
     await ensureAccountsPubliclyDeployed(wallets[0], wallets.slice(0, 2));
 
     testLogContract = await TestLogContract.deploy(wallets[0]).send().deployed();
-
-    await pxe.registerRecipient(wallets[1].getCompleteAddress());
   });
 
   afterAll(() => teardown());
