@@ -2,6 +2,7 @@ import { UnencryptedL2Log } from '@aztec/circuit-types';
 import {
   AvmContractBytecodeHints,
   AvmContractInstanceHint,
+  AvmEnqueuedCallHint,
   AvmExecutionHints,
   AvmExternalCallHint,
   AvmKeyValueHint,
@@ -57,6 +58,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 
 import { type AvmContractCallResult } from '../avm/avm_contract_call_result.js';
 import { type AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
+import { type PublicExecutionResult } from './execution.js';
 import { SideEffectLimitReachedError } from './side_effect_errors.js';
 import { type PublicSideEffectTraceInterface } from './side_effect_trace_interface.js';
 
@@ -66,6 +68,8 @@ import { type PublicSideEffectTraceInterface } from './side_effect_trace_interfa
  * This struct is helpful for testing and checking array lengths.
  **/
 export type SideEffects = {
+  enqueuedCalls: PublicCallRequest[];
+
   contractStorageReads: ContractStorageRead[];
   contractStorageUpdateRequests: ContractStorageUpdateRequest[];
 
@@ -92,6 +96,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
   /** The side effect counter increments with every call to the trace. */
   private sideEffectCounter: number;
 
+  private enqueuedCalls: PublicCallRequest[] = [];
   // TODO(dbanks12): make contract address mandatory in ContractStorage* structs,
   // and include it in serialization, or modify PublicData* structs for this.
   private contractStorageReads: ContractStorageRead[] = [];
@@ -410,7 +415,88 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     );
   }
 
+  /**
+   * Trace an enqueued call.
+   * Accept some results from a finished call's trace into this one.
+   */
+  public traceEnqueuedCall(
+    /** The trace of the enqueued call. */
+    enqueuedCallTrace: this,
+    /** The call request from private that enqueued this call. */
+    publicCallRequest: PublicCallRequest,
+    /** The call's calldata */
+    calldata: Fr[],
+    /** Did the call revert? */
+    reverted: boolean,
+  ) {
+    // TODO(4805): check if some threshold is reached for max enqueued or nested calls (to unique contracts?)
+    // TODO(dbanks12): should emit a nullifier read request. There should be two thresholds.
+    // one for max unique contract calls, and another based on max nullifier reads.
+    // Since this trace function happens _after_ a nested call, such threshold limits must take
+    // place in another trace function that occurs _before_ a nested call.
+    if (reverted) {
+      this.absorbRevertedNestedTrace(enqueuedCallTrace);
+    } else {
+      this.absorbSuccessfulNestedTrace(enqueuedCallTrace);
+    }
+
+    this.enqueuedCalls.push(publicCallRequest);
+
+    this.avmCircuitHints.enqueuedCalls.items.push(
+      new AvmEnqueuedCallHint(publicCallRequest.callContext.contractAddress, calldata),
+    );
+  }
+
+  /**
+   * Trace an enqueued call.
+   * Accept some results from a finished call's trace into this one.
+   */
+  public traceAppLogicPhase(
+    /** The trace of the enqueued call. */
+    appLogicTrace: this,
+    /** The call request from private that enqueued this call. */
+    publicCallRequests: PublicCallRequest[],
+    /** The call's calldata */
+    calldatas: Fr[][],
+    /** Did the any enqueued call in app logic revert? */
+    reverted: boolean,
+  ) {
+    // TODO(4805): check if some threshold is reached for max enqueued or nested calls (to unique contracts?)
+    // TODO(dbanks12): should emit a nullifier read request. There should be two thresholds.
+    // one for max unique contract calls, and another based on max nullifier reads.
+    // Since this trace function happens _after_ a nested call, such threshold limits must take
+    // place in another trace function that occurs _before_ a nested call.
+    if (reverted) {
+      this.absorbRevertedAppLogicPhaseTrace(appLogicTrace);
+    } else {
+      this.absorbSuccessfulAppLogicPhaseTrace(appLogicTrace);
+    }
+
+    for (let i = 0; i < publicCallRequests.length; i++) {
+      this.enqueuedCalls.push(publicCallRequests[i]);
+
+      this.avmCircuitHints.enqueuedCalls.items.push(
+        new AvmEnqueuedCallHint(publicCallRequests[i].callContext.contractAddress, calldatas[i]),
+      );
+    }
+  }
+
+  public absorbSuccessfulAppLogicPhaseTrace(nestedTrace: this) {
+    this.enqueuedCalls.push(...nestedTrace.enqueuedCalls);
+    this.absorbSuccessfulNestedTrace(nestedTrace);
+  }
+
+  public absorbRevertedAppLogicPhaseTrace(nestedTrace: this) {
+    // NOTE: Even on revert of an app-logic enqueued call, we need hints to prove that we reverted for valid reasons!
+    this.enqueuedCalls.push(...nestedTrace.enqueuedCalls);
+    this.absorbRevertedNestedTrace(nestedTrace);
+  }
+
   public absorbSuccessfulNestedTrace(nestedTrace: this) {
+    // NOTE: don't absorb enqueued calls! A call cannot enqueue another one,
+    // so only the top level trace instance can trace enqueued calls.
+
+    // TODO(dbanks12): accept & merge nested trace's hints!
     this.sideEffectCounter = nestedTrace.sideEffectCounter;
     this.contractStorageReads.push(...nestedTrace.contractStorageReads);
     this.contractStorageUpdateRequests.push(...nestedTrace.contractStorageUpdateRequests);
@@ -430,6 +516,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
     // require complex validation in public kernel (with end lifetimes)
     // must be absorbed even on revert.
 
+    // TODO(dbanks12): accept & merge nested trace's hints!
     // TODO(dbanks12): What should happen to side effect counter on revert?
     this.sideEffectCounter = nestedTrace.sideEffectCounter;
     this.contractStorageReads.push(...nestedTrace.contractStorageReads);
@@ -446,6 +533,7 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
 
   public getSideEffects(): SideEffects {
     return {
+      enqueuedCalls: this.enqueuedCalls,
       contractStorageReads: this.contractStorageReads,
       contractStorageUpdateRequests: this.contractStorageUpdateRequests,
       noteHashReadRequests: this.noteHashReadRequests,
@@ -487,6 +575,23 @@ export class PublicEnqueuedCallSideEffectTrace implements PublicSideEffectTraceI
       /*transactionFee=*/ avmEnvironment.transactionFee,
       /*reverted=*/ avmCallResults.reverted,
     );
+  }
+
+  public toPublicExecutionResult(
+    /** The execution environment of the nested call. */
+    _avmEnvironment: AvmExecutionEnvironment,
+    /** How much gas was available for this public execution. */
+    _startGasLeft: Gas,
+    /** How much gas was left after this public execution. */
+    _endGasLeft: Gas,
+    /** Bytecode used for this execution. */
+    _bytecode: Buffer,
+    /** The call's results */
+    _avmCallResults: AvmContractCallResult,
+    /** Function name for logging */
+    _functionName: string = 'unknown',
+  ): PublicExecutionResult {
+    throw new Error('Not implemented');
   }
 
   public getUnencryptedLogs() {

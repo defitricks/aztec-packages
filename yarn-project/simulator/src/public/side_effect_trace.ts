@@ -27,6 +27,7 @@ import {
   MAX_UNENCRYPTED_LOGS_PER_TX,
   NoteHash,
   Nullifier,
+  type PublicCallRequest,
   type PublicInnerCallRequest,
   ReadRequest,
   SerializableContractInstance,
@@ -329,6 +330,32 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
         nestedEnvironment.address,
       ),
     );
+  }
+
+  public traceEnqueuedCall(
+    /** The trace of the enqueued call. */
+    _enqueuedCallTrace: this,
+    /** The call request from private that enqueued this call. */
+    _publicCallRequest: PublicCallRequest,
+    /** The call's calldata */
+    _calldata: Fr[],
+    /** Did the call revert? */
+    _reverted: boolean,
+  ) {
+    throw new Error('Not implemented');
+  }
+
+  public traceAppLogicPhase(
+    /** The trace of the enqueued call. */
+    _appLogicTrace: this,
+    /** The call request from private that enqueued this call. */
+    _publicCallRequests: PublicCallRequest[],
+    /** The call's calldata */
+    _calldatas: Fr[][],
+    /** Did the any enqueued call in app logic revert? */
+    _reverted: boolean,
+  ) {
+    throw new Error('Not implemented');
   }
 
   /**

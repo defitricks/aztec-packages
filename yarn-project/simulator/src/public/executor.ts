@@ -62,6 +62,7 @@ export class PublicExecutor {
     startSideEffectCounter: number = 0,
     previousValidationRequestArrayLengths: PublicValidationRequestArrayLengths = PublicValidationRequestArrayLengths.empty(),
     previousAccumulatedDataArrayLengths: PublicAccumulatedDataArrayLengths = PublicAccumulatedDataArrayLengths.empty(),
+    stateManager: AvmPersistableStateManager | undefined = undefined,
   ): Promise<PublicExecutionResult> {
     const address = executionRequest.callContext.contractAddress;
     const selector = executionRequest.callContext.functionSelector;
@@ -72,23 +73,25 @@ export class PublicExecutor {
     );
     const timer = new Timer();
 
-    const innerCallTrace = new PublicSideEffectTrace(startSideEffectCounter);
-    const enqueuedCallTrace = new PublicEnqueuedCallSideEffectTrace(
-      startSideEffectCounter,
-      previousValidationRequestArrayLengths,
-      previousAccumulatedDataArrayLengths,
-    );
-    const trace = new DualSideEffectTrace(innerCallTrace, enqueuedCallTrace);
-    const avmPersistableState = AvmPersistableStateManager.newWithPendingSiloedNullifiers(
-      this.worldStateDB,
-      trace,
-      pendingSiloedNullifiers.map(n => n.value),
-    );
+    if (!stateManager) {
+      const innerCallTrace = new PublicSideEffectTrace(startSideEffectCounter);
+      const enqueuedCallTrace = new PublicEnqueuedCallSideEffectTrace(
+        startSideEffectCounter,
+        previousValidationRequestArrayLengths,
+        previousAccumulatedDataArrayLengths,
+      );
+      const trace = new DualSideEffectTrace(innerCallTrace, enqueuedCallTrace);
+      stateManager = AvmPersistableStateManager.newWithPendingSiloedNullifiers(
+        this.worldStateDB,
+        trace,
+        pendingSiloedNullifiers.map(n => n.value),
+      );
+    }
 
     const avmExecutionEnv = createAvmExecutionEnvironment(executionRequest, constants.globalVariables, transactionFee);
 
     const avmMachineState = new AvmMachineState(allocatedGas);
-    const avmContext = new AvmContext(avmPersistableState, avmExecutionEnv, avmMachineState);
+    const avmContext = new AvmContext(stateManager, avmExecutionEnv, avmMachineState);
     const simulator = new AvmSimulator(avmContext);
     const avmResult = await simulator.execute();
     const bytecode = simulator.getBytecode()!;
@@ -97,7 +100,7 @@ export class PublicExecutor {
     // Observe that this will write all the state changes to the DBs, not only the latest for each slot.
     // However, the underlying DB keep a cache and will only write the latest state to disk.
     // TODO(dbanks12): this should be unnecessary here or should be exposed by state manager
-    await avmContext.persistableState.publicStorage.commitToDB();
+    //await avmContext.persistableState.publicStorage.commitToDB();
 
     PublicExecutor.log.verbose(
       `[AVM] ${fnName} returned, reverted: ${avmResult.reverted}${
@@ -111,7 +114,7 @@ export class PublicExecutor {
       } satisfies AvmSimulationStats,
     );
 
-    const publicExecutionResult = trace.toPublicExecutionResult(
+    const publicExecutionResult = stateManager.trace.toPublicExecutionResult(
       avmExecutionEnv,
       /*startGasLeft=*/ allocatedGas,
       /*endGasLeft=*/ Gas.from(avmContext.machineState.gasLeft),
@@ -120,19 +123,19 @@ export class PublicExecutor {
       fnName,
     );
 
-    if (publicExecutionResult.reverted) {
+    if (avmResult.reverted) {
       this.metrics.recordFunctionSimulationFailure();
     } else {
       this.metrics.recordFunctionSimulation(bytecode.length, timer.ms());
     }
 
-    const _vmCircuitPublicInputs = enqueuedCallTrace.toVMCircuitPublicInputs(
-      constants,
-      avmExecutionEnv,
-      /*startGasLeft=*/ allocatedGas,
-      /*endGasLeft=*/ Gas.from(avmContext.machineState.gasLeft),
-      avmResult,
-    );
+    //const _vmCircuitPublicInputs = enqueuedCallTrace.toVMCircuitPublicInputs(
+    //  constants,
+    //  avmExecutionEnv,
+    //  /*startGasLeft=*/ allocatedGas,
+    //  /*endGasLeft=*/ Gas.from(avmContext.machineState.gasLeft),
+    //  avmResult,
+    //);
 
     PublicExecutor.log.verbose(
       `[AVM] ${fnName} simulation complete. Reverted=${avmResult.reverted}. Consumed ${

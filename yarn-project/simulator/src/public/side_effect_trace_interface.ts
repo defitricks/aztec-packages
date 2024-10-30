@@ -1,8 +1,14 @@
-import { type ContractClassIdPreimage, type Gas, type SerializableContractInstance } from '@aztec/circuits.js';
+import {
+  type ContractClassIdPreimage,
+  type Gas,
+  type PublicCallRequest,
+  type SerializableContractInstance,
+} from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
 
 import { type AvmContractCallResult } from '../avm/avm_contract_call_result.js';
 import { type AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
+import { type PublicExecutionResult } from './execution.js';
 
 export interface PublicSideEffectTraceInterface {
   fork(): PublicSideEffectTraceInterface;
@@ -43,4 +49,38 @@ export interface PublicSideEffectTraceInterface {
     /** Function name */
     functionName: string,
   ): void;
+  traceEnqueuedCall(
+    /** The trace of the enqueued call. */
+    enqueuedCallTrace: this,
+    /** The call request from private that enqueued this call. */
+    publicCallRequest: PublicCallRequest,
+    /** The call's calldata */
+    calldata: Fr[],
+    /** Did the call revert? */
+    reverted: boolean,
+  ): void;
+  traceAppLogicPhase(
+    /** The trace of the enqueued call. */
+    appLogicTrace: this,
+    /** The call request from private that enqueued this call. */
+    publicCallRequests: PublicCallRequest[],
+    /** The call's calldata */
+    calldatas: Fr[][],
+    /** Did the any enqueued call in app logic revert? */
+    reverted: boolean,
+  ): void;
+  toPublicExecutionResult(
+    /** The execution environment of the nested call. */
+    avmEnvironment: AvmExecutionEnvironment,
+    /** How much gas was available for this public execution. */
+    startGasLeft: Gas,
+    /** How much gas was left after this public execution. */
+    endGasLeft: Gas,
+    /** Bytecode used for this execution. */
+    bytecode: Buffer,
+    /** The call's results */
+    avmCallResults: AvmContractCallResult,
+    /** Function name for logging */
+    functionName: string,
+  ): PublicExecutionResult;
 }

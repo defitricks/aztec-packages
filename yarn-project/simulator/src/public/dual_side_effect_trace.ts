@@ -2,6 +2,7 @@ import {
   type CombinedConstantData,
   type ContractClassIdPreimage,
   type Gas,
+  type PublicCallRequest,
   type SerializableContractInstance,
   type VMCircuitPublicInputs,
 } from '@aztec/circuits.js';
@@ -135,6 +136,37 @@ export class DualSideEffectTrace implements PublicSideEffectTraceInterface {
       avmCallResults,
       functionName,
     );
+  }
+
+  public traceEnqueuedCall(
+    /** The trace of the enqueued call. */
+    enqueuedCallTrace: this,
+    /** The call request from private that enqueued this call. */
+    publicCallRequest: PublicCallRequest,
+    /** The call's calldata */
+    calldata: Fr[],
+    /** Did the call revert? */
+    reverted: boolean,
+  ) {
+    this.enqueuedCallTrace.traceEnqueuedCall(
+      enqueuedCallTrace.enqueuedCallTrace,
+      publicCallRequest,
+      calldata,
+      reverted,
+    );
+  }
+
+  public traceAppLogicPhase(
+    /** The trace of the enqueued call. */
+    appLogicTrace: this,
+    /** The call request from private that enqueued this call. */
+    publicCallRequests: PublicCallRequest[],
+    /** The call's calldata */
+    calldatas: Fr[][],
+    /** Did the any enqueued call in app logic revert? */
+    reverted: boolean,
+  ) {
+    this.enqueuedCallTrace.traceAppLogicPhase(appLogicTrace.enqueuedCallTrace, publicCallRequests, calldatas, reverted);
   }
 
   /**

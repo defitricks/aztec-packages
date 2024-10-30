@@ -1,6 +1,7 @@
 import {
   AztecAddress,
   type Gas,
+  type PublicCallRequest,
   SerializableContractInstance,
   computePublicBytecodeCommitment,
 } from '@aztec/circuits.js';
@@ -33,7 +34,8 @@ export class AvmPersistableStateManager {
     /** Reference to node storage */
     private readonly worldStateDB: WorldStateDB,
     /** Side effect trace */
-    private readonly trace: PublicSideEffectTraceInterface,
+    // TODO(5818): make private once no longer accessed in executor
+    public readonly trace: PublicSideEffectTraceInterface,
     /** Public storage, including cached writes */
     // TODO(5818): make private once no longer accessed in executor
     public readonly publicStorage: PublicStorage,
@@ -318,5 +320,48 @@ export class AvmPersistableStateManager {
       avmCallResults,
       functionName,
     );
+  }
+
+  public async processEnqueuedCall(
+    nestedState: AvmPersistableStateManager,
+    /** The call request from private that enqueued this call. */
+    publicCallRequest: PublicCallRequest,
+    /** The call's calldata */
+    calldata: Fr[],
+    /** Did the call revert? */
+    reverted: boolean,
+  ) {
+    if (!reverted) {
+      this.acceptNestedCallState(nestedState);
+    }
+    const functionName = await getPublicFunctionDebugName(
+      this.worldStateDB,
+      publicCallRequest.callContext.contractAddress,
+      publicCallRequest.callContext.functionSelector,
+      calldata,
+    );
+
+    this.log.verbose(`[AVM] Encountered enqueued public call starting with function ${functionName}`);
+
+    this.trace.traceEnqueuedCall(nestedState.trace, publicCallRequest, calldata, reverted);
+  }
+
+  public processEntireAppLogicPhase(
+    /** The forked state manager used by app logic */
+    nestedState: AvmPersistableStateManager,
+    /** The call requests for each enqueued call in app logic. */
+    publicCallRequests: PublicCallRequest[],
+    /** The calldatas for each enqueued call in app logic */
+    calldatas: Fr[][],
+    /** Did the any enqueued call in app logic revert? */
+    reverted: boolean,
+  ) {
+    if (!reverted) {
+      this.acceptNestedCallState(nestedState);
+    }
+
+    this.log.verbose(`[AVM] Encountered app logic phase`);
+
+    this.trace.traceAppLogicPhase(nestedState.trace, publicCallRequests, calldatas, reverted);
   }
 }

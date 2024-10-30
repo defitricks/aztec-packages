@@ -61,6 +61,7 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { type MerkleTreeReadOperations } from '@aztec/world-state';
 
+import { type AvmPersistableStateManager } from '../avm/journal/journal.js';
 import { type PublicExecutionResult, accumulatePublicReturnValues, collectExecutionResults } from './execution.js';
 import { type PublicExecutor } from './executor.js';
 import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
@@ -85,6 +86,8 @@ export type EnqueuedCallResult = {
   gasUsed: Gas;
   /** Revert reason, if any */
   revertReason?: SimulationError;
+  /** Did call revert? */
+  reverted?: boolean;
 };
 
 export class EnqueuedCallSimulator {
@@ -107,6 +110,7 @@ export class EnqueuedCallSimulator {
     availableGas: Gas,
     transactionFee: Fr,
     phase: PublicKernelPhase,
+    stateManager: AvmPersistableStateManager | undefined,
   ): Promise<EnqueuedCallResult> {
     // Gas allocated to an enqueued call can be different from the available gas
     // if there is more gas available than the max allocation per enqueued call.
@@ -141,6 +145,7 @@ export class EnqueuedCallSimulator {
       startSideEffectCounter,
       previousValidationRequestArrayLengths,
       previousAccumulatedDataArrayLengths,
+      stateManager,
     );
 
     const callStack = makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, PublicInnerCallRequest.empty);
@@ -178,6 +183,7 @@ export class EnqueuedCallSimulator {
     let avmProvingRequest: AvmProvingRequest;
     let gasUsed = Gas.empty();
     let revertReason;
+    let reverted;
     let kernelOutput = startVMCircuitOutput;
 
     for (const result of executionResults) {
@@ -221,6 +227,7 @@ export class EnqueuedCallSimulator {
           returnValues: NestedProcessReturnValues.empty(),
           gasUsed,
           revertReason: result.revertReason,
+          reverted: result.reverted,
         };
       }
     }
@@ -232,6 +239,7 @@ export class EnqueuedCallSimulator {
       returnValues: accumulatePublicReturnValues(topResult),
       gasUsed,
       revertReason,
+      reverted,
     };
   }
 
